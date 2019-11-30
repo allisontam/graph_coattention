@@ -101,13 +101,15 @@ def main():
 	parser.add_argument('-mm', '--memo', help='Trained model, ends in .pth', default='default')
 	parser.add_argument('--entropy', help='Where to save entropy, ends in .pickle', default=None)
 	parser.add_argument('--model_dir', default='./exp_trained')
+	parser.add_argument('--settings_dir', default='./exp_settings')
+        parser.add_argument('--fold_i', type=int, required=True)
 
 	parser.add_argument('-t', '--test_dataset_pkl', default=None)
 	parser.add_argument('-b', '--batch_size', type=int, default=128)
 
 	eval_opt = parser.parse_args()
 
-	eval_opt.setting_pkl = os.path.join(eval_opt.model_dir, eval_opt.settings)
+	eval_opt.setting_pkl = os.path.join(eval_opt.settings_dir, eval_opt.settings)
 	eval_opt.best_model_pkl = os.path.join(eval_opt.model_dir, eval_opt.memo)
 
 	test_opt = np.load(eval_opt.setting_pkl, allow_pickle=True).item()
@@ -164,14 +166,18 @@ def main():
 			test_dataset = pickle.load(open(eval_opt.test_dataset_pkl, 'rb'))
 			positive_data = test_dataset['positive']
 			negative_data = test_dataset['negative']
-		#else:
+                else: # MINE
+                        test_dataset = pickle.load(open('./data/decagon/folds/' + str(opt.fold_i) + "fold.npy", "rb"))
+                        positive_data = test_dataset['positive']
+                        negative_data = test_dataset['negative']
+                # else: # HERS
 		#	test_opt, _, _ = copy_dataset_from_pkl(test_opt)
 
-			with open('cv_data.txt', 'rb') as handle:
-				all_cv_datasets = pickle.loads(handle.read())
+			# with open('cv_data.txt', 'rb') as handle:
+				# all_cv_datasets = pickle.loads(handle.read())
 
-			positive_data =all_cv_datasets['pos'][test_opt.fold_i]['test']
-			negative_data = all_cv_datasets['neg'][test_opt.fold_i]['test']
+			# positive_data =all_cv_datasets['pos'][test_opt.fold_i]['test']
+			# negative_data = all_cv_datasets['neg'][test_opt.fold_i]['test']
 
 		# create data loader
 		test_data = prepare_ddi_testset_dataloader(

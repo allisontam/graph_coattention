@@ -43,7 +43,7 @@ def download_decagon_data(dir_path='./data/'):
 
     import csv
     drug_idx = set()
-    with open(dir_path + 'bio-decagon-combo.csv') as f:
+    with open(dir_path + 'decagon/bio-decagon-combo.csv') as f:
         csv_rdr = csv.reader(f)
         for i, row in enumerate(csv_rdr):
             if i == 0:
