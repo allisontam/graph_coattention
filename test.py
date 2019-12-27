@@ -106,6 +106,7 @@ def main():
 
         parser.add_argument('-t', '--test_dataset_pkl', default=None)
         parser.add_argument('-b', '--batch_size', type=int, default=128)
+        parser.add_argument('--gpu', type=int, default=0)
 
         eval_opt = parser.parse_args()
 
@@ -116,6 +117,9 @@ def main():
         test_opt.best_model_pkl = eval_opt.best_model_pkl
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if torch.cuda.is_available():
+                print("using cuda",eval_opt.gpu)
+                torch.cuda.set_device(eval_opt.gpu)
 
         if "qm9" in eval_opt.dataset:
                 test_opt.test_graph_dict = pickle.load(open(test_opt.input_data_path + "folds/" + "test_graphs.npy", "rb"))
