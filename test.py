@@ -192,14 +192,14 @@ def main():
                 # build model
                 model, threshold = load_trained_model(test_opt, device)
 
-                #print("Threshold", threshold)
+                print("Threshold", threshold, 'for fold', eval_opt.fold_i)
 
                 # start testing
                 test_perf, _ = run_evaluation(model, test_data, device, test_opt, threshold=threshold)
                 for k,v in test_perf.items():
                         if k!= 'threshold':
-                                print(k, v)
-                #print_performance_table({k: v for k, v in test_perf.items() if k != 'threshold'})
+                                print(k, v, 'for fold', eval_opt.fold_i)
+                # print_performance_table({k: v for k, v in test_perf.items() if k != 'threshold'})
 
 
 if __name__ == "__main__":
