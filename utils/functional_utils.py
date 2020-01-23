@@ -38,27 +38,14 @@ class AverageMeter(object):
             raise NotImplementedError
 
 
-def get_optimal_thresholds_for_rels(relations, gold, score, interval=0.01):
-
-	def get_optimal_threshold(gold, score):
-		''' Get the threshold with maximized accuracy'''
-		if (np.max(score) - np.min(score)) < interval:
-			optimal_threshold = np.max(score)
-		else:
-			thresholds = np.arange(np.min(score), np.max(score), interval).reshape(1, -1)
-			score = score.reshape(-1, 1)
-			gold = gold.reshape(-1, 1)
-			optimal_threshold_idx = np.sum((score > thresholds) == gold, 0).argmax()
-			optimal_threshold = thresholds.reshape(-1)[optimal_threshold_idx]
-		return optimal_threshold
-
-	unique_rels = np.unique(relations)
-	rel_thresholds = np.zeros(int(unique_rels.max()) + 1)
-
-	for rel_idx in unique_rels:
-		rel_mask = np.where(relations == rel_idx)
-		rel_gold = gold[rel_mask]
-		rel_score = score[rel_mask]
-		rel_thresholds[rel_idx] = get_optimal_threshold(rel_gold, rel_score)
-
-	return rel_thresholds
+def get_optimal_thresholds_for_rels(gold, score, interval=0.01):
+        ''' Get the threshold with maximized accuracy'''
+        if (np.max(score) - np.min(score)) < interval:
+                optimal_threshold = np.max(score)
+        else:
+                thresholds = np.arange(np.min(score), np.max(score), interval).reshape(1, -1)
+                score = score.reshape(-1, 1)
+                gold = gold.reshape(-1, 1)
+                optimal_threshold_idx = np.sum((score > thresholds) == gold, 0).argmax()
+                optimal_threshold = thresholds.reshape(-1)[optimal_threshold_idx]
+        return optimal_threshold

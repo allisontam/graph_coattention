@@ -1,6 +1,5 @@
 import json
 import numpy as np
-import pandas as pd
 import torch.utils.data
 
 from random import shuffle
@@ -18,10 +17,13 @@ def train_collate_fn(batch):
 
 def test_collate_fn(batch):
     ret_all = []
+    truth = []
     for item in batch: # item is output of __getitem__
         ret_all.extend(item[0])
+        truth.extend([1]*len(item[0]))
         ret_all.extend(item[1])
-    return ddi_collate_batch(ret_all)
+        truth.extend([0]*len(item[1]))
+    return (ddi_collate_batch(ret_all), truth)
 
 def ddi_collate_batch(batch):
     """
@@ -74,11 +76,12 @@ def collate_drugs(drugs):
 class GenericDataset(torch.utils.data.Dataset):
     """
     Only for predicting single properties from pairs
+
+    data: pandas for the intended split
     """
-    def __init__(self, data_path, mol_desc_path, prop_name='agg'):
-        props = pd.read_csv(data_path)
-        self.pos_pairs = list(map(lambda x: tuple(x[1][:2]), props[props[prop_name] == 1].iterrows()))
-        self.neg_pairs = list(map(lambda x: tuple(x[1][:2]), props[props[prop_name] == 0].iterrows()))
+    def __init__(self, data, mol_desc_path, prop_name='agg'):
+        self.pos_pairs = list(map(lambda x: tuple(x[1][:2]), data[data[prop_name] == 1].iterrows()))
+        self.neg_pairs = list(map(lambda x: tuple(x[1][:2]), data[data[prop_name] == 0].iterrows()))
         self.shuffle()
 
         self.drug_struct = {}
@@ -100,7 +103,11 @@ class GenericDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         ratio = int(self.neg2pos_ratio())
         ret_pos = self.lookup( [self.pos_pairs[idx]] )
-        ret_neg = self.lookup( self.neg_pairs[idx*ratio:(idx+1)*ratio] )
+
+        end_ind = (idx+1)*ratio
+        if len(self.neg_pairs) - end_ind < ratio:  # make sure to include all data
+            end_ind = len(self.neg_pairs)
+        ret_neg = self.lookup( self.neg_pairs[idx*ratio:end_ind] )
         return (ret_pos, ret_neg)
 
     def lookup(self, data):

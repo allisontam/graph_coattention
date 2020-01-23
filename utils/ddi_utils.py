@@ -24,6 +24,9 @@ def ddi_train_epoch(model, data_train, optimizer, averaged_model, device, opt):
 
     # seg_pos_neg provably just selects all positive
     def max_margin_loss_fn(pos_eg_score, neg_eg_score, margin=1):
+        num_pos, num_neg = pos_eg_score.shape[0], neg_eg_score.shape[0]
+        pos_eg_score = pos_eg_score.repeat(num_neg, 1).T.flatten()
+        neg_eg_score = neg_eg_score.repeat(num_pos)
         return torch.mean(F.relu(margin - pos_eg_score + neg_eg_score))
 
     # =================================================================================
@@ -33,16 +36,10 @@ def ddi_train_epoch(model, data_train, optimizer, averaged_model, device, opt):
     start = time.time()
     avg_training_loss = AverageMeter()
 
-    data_train.dataset.prepare_feeding_insts()
     for batch in tqdm(data_train, mininterval=3, leave=False, desc=' - (Training)  '):
-
         # optimize setup
         optimizer.zero_grad()
         update_learning_rate(optimizer, opt.learning_rate, opt.global_step)
-
-        if opt.transH:
-            model.side_effect_norm_emb.weight = nn.Parameter(
-                F.normalize(model.side_effect_norm_emb.weight))
 
         # move to GPU if needed
         pos_batch, neg_batch = batch
@@ -79,45 +76,33 @@ def ddi_train_epoch(model, data_train, optimizer, averaged_model, device, opt):
 def ddi_valid_epoch(model, data_valid, device, opt, threshold=None):
     model.eval()
 
-    score, label, seidx = [], [], []
+    score, label = [], []
     start = time.time()
     with torch.no_grad():
         for batch in tqdm(data_valid, mininterval=3, leave=False, desc=' - (Validation) '):
-            *batch, batch_label = batch
+            batch, batch_label = batch
             batch = [v.to(device) for v in batch] # move to GPU if needed
             # forward
             batch_score, *_ = model(*batch)
             # bookkeeping
             label += [batch_label]
             score += [batch_score]
-            seidx += [batch[-2]]
 
     cpu = torch.device("cpu")
     label = np.hstack(label)
     score = np.hstack([s.to(cpu) for s in score])
-    seidx = np.hstack([s.to(cpu) for s in seidx])
 
-    if model.score_fn == 'trans':
-        ''' Unbounded scores'''
-        if threshold is None:
-            threshold = get_optimal_thresholds_for_rels(seidx, label, score)
-        instance_threshold = threshold[seidx]
-    else:
-        ''' logit '''
-        def sigmoid(x):
-            return 1 / (1 + np.exp(-x))
-        score = sigmoid(score) # to prob
-        instance_threshold = np.ones_like(score) * 0.5
-
-    pred = score > instance_threshold
+    ''' Unbounded scores'''
+    instance_threshold = threshold or get_optimal_thresholds_for_rels(label, score)
+    print('threshold', instance_threshold)
 
     # calculate the performance
     performance = {
         'auroc': metrics.roc_auc_score(label, score),
         'avg_p': metrics.average_precision_score(label, score),
-        'f1': metrics.f1_score(label, pred, average='binary'),
-        'p': metrics.precision_score(label, pred, average='binary'),
-        'r': metrics.recall_score(label, pred, average='binary'),
+        # 'f1': metrics.f1_score(label, pred, average='binary'),
+        # 'p': metrics.precision_score(label, pred, average='binary'),
+        # 'r': metrics.recall_score(label, pred, average='binary'),
         'threshold': threshold
     }
 
