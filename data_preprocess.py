@@ -350,12 +350,12 @@ def preprocess_qm9(dir_path='./data/qm9/dsgdb9nsd'):
 
 def main():
 	parser = argparse.ArgumentParser(description='Download dataset for Graph Co-attention')
-	parser.add_argument('datasets', metavar='D', type=str.lower, nargs='+', choices=['qm9', 'decagon'],
-						help='Name of dataset to download [QM9,DECAGON]')
+	parser.add_argument('datasets', metavar='D', type=str.lower, nargs='+', choices=['qm9', 'decagon', 'gen'],
+						help='Name of dataset to download [QM9,DECAGON,GEN]')
 
 	# I/O
 	parser.add_argument('-p', '--path', metavar='dir', type=str, nargs=1,
-						help="path to store the data (default ./data/)")
+						help="path to store the data; must supply if generic (default ./data/)")
 
 	args = parser.parse_args()
 
@@ -373,6 +373,9 @@ def main():
 
 	if 'decagon' in args.datasets:
 		preprocess_decagon(args.path + 'decagon/')
+
+	if 'agg' in args.datasets:
+		preprocess_decagon(args.path)
 
 
 if __name__ == "__main__":

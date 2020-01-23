@@ -1,6 +1,10 @@
 """
-    Downloading QM9/ DECAGON data to args.path (set by default to be "./data/")
-    command: python data_download QM9 DECAGON -p path
+actam:
+    python data_download.py smiles -p data/datasetName
+
+
+Downloading QM9/ DECAGON data to args.path (set by default to be "./data/")
+command: python data_download QM9 DECAGON -p path
 """
 import argparse
 import os
@@ -10,7 +14,7 @@ import tarfile
 from utils.file_utils import *
 
 
-def download_decagon_data(dir_path='./data/'):
+def download_smiles_data(dir_path='./data/'):
     """
     Step 0: Download Polypharmacy data
     wget http://snap.stanford.edu/decagon/bio-decagon-combo.tar.gz;
@@ -43,7 +47,7 @@ def download_decagon_data(dir_path='./data/'):
 
     import csv
     drug_idx = set()
-    with open(dir_path + 'decagon/bio-decagon-combo.csv') as f:
+    with open(os.path.join(dir_path, 'data.csv')) as f:
         csv_rdr = csv.reader(f)
         for i, row in enumerate(csv_rdr):
             if i == 0:
@@ -59,12 +63,12 @@ def download_decagon_data(dir_path='./data/'):
     from tqdm import tqdm_notebook
     import pubchempy as pcp
     # Use int type cid to search with PubChemPy
-    drugs = {cid: pcp.Compound.from_cid(int(cid.strip('CID')))
+    drugs = {cid: pcp.get_compounds(cid, 'smiles')[0]
              for cid in tqdm_notebook(drug_idx)}
 
     # # Step 3: Write to file
     import json
-    with open(dir_path + 'drug_raw_feat.idx.jsonl', 'w') as f:
+    with open(os.path.join(dir_path, 'drug_raw_feat.idx.jsonl'), 'w') as f:
         for cid, drug in drugs.items():
             drug = drug.to_dict(properties=['atoms', 'bonds'])
             f.write('{}\t{}\n'.format(cid, json.dumps(drug)))
@@ -124,8 +128,8 @@ def main():
     parser = argparse.ArgumentParser(
         description='Download dataset for Graph Co-attention')
     parser.add_argument('datasets', metavar='D', type=str.lower,
-                        nargs='+', choices=['qm9', 'decagon'],
-                        help='Name of dataset to download [QM9,DECAGON]')
+                        nargs='+', choices=['qm9', 'smiles'],
+                        help='Name of dataset to download [QM9,SMILES]')
 
     # I/O
     parser.add_argument('-p', '--path', metavar='dir', type=str, nargs=1,
@@ -145,8 +149,8 @@ def main():
     if 'qm9' in args.datasets:
         download_qm9_data(args.path)
 
-    if 'decagon' in args.datasets:
-        download_decagon_data(args.path)
+    if 'smiles' in args.datasets:
+        download_smiles_data(args.path)
 
 
 if __name__ == "__main__":

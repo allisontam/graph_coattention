@@ -1,5 +1,5 @@
 """
-        File used to train the networks.
+File used to train the networks.
 """
 import os
 import csv
@@ -74,7 +74,6 @@ def prepare_ddi_dataloaders(opt):
         train_loader = torch.utils.data.DataLoader(
                 PolypharmacyDataset(
                         drug_structure_dict= opt.graph_dict,
-                        se_idx_dict = opt.side_effect_idx_dict,
                         se_pos_dps = opt.train_dataset['pos'],
                         #TODO: inspect why I'm not just fetching opt.train_dataset['neg']
                         negative_sampling=True,
@@ -89,7 +88,6 @@ def prepare_ddi_dataloaders(opt):
         valid_loader = torch.utils.data.DataLoader(
                 PolypharmacyDataset(
                         drug_structure_dict = opt.graph_dict,
-                        se_idx_dict = opt.side_effect_idx_dict,
                         se_pos_dps = opt.valid_dataset['pos'],
                         se_neg_dps = opt.valid_dataset['neg'],
                         n_max_batch_se=1),
@@ -282,86 +280,31 @@ def main():
         opt.n_bond_type = data_opt.n_bond_type
         opt.graph_dict = data_opt.graph_dict
         print(len(opt.graph_dict))
-        opt.n_side_effect = None
 
-        if "qm9" in opt.dataset:
-                opt.train_graph_dict = pickle.load(open(opt.input_data_path + "folds/" + "train_graphs.npy", "rb"))
-                opt.train_labels_dict = pickle.load(open(opt.input_data_path + "folds/" + "train_labels.npy", "rb"))
+        opt.n_side_effect = data_opt.n_side_effect
+        # opt.side_effects = data_opt.side_effects
+        # opt.side_effect_idx_dict = data_opt.side_effect_idx_dict
 
-                opt.valid_graph_dict = pickle.load(open(opt.input_data_path + "folds/" + "valid_graphs.npy", "rb"))
-                opt.valid_labels_dict = pickle.load(open(opt.input_data_path + "folds/" + "valid_labels.npy", "rb"))
+        # 'pos'/'neg' will point to a dictionary where
+        # each se points to a list of drug-drug pairs.
+        opt.train_dataset = {'pos': {}, 'neg': {}}
+        opt.test_dataset = pickle.load(open(opt.input_data_path + "folds/" + str(opt.fold_i) + "fold.npy", "rb"))
+        if opt.fold_i == 1:
+                valid_fold = 2
+        else:
+                valid_fold = 1
 
+        opt.valid_dataset = pickle.load(open(opt.input_data_path + "folds/" + str(valid_fold) + "fold.npy", "rb"))
 
-                if not hasattr(opt, 'mpnn'):
-                        opt.mpnn = False
+        for i in range(valid_fold+1, opt.n_fold+1):
+                        if i != opt.fold_i:
+                                dataset = pickle.load(open(opt.input_data_path + "folds/" + str(i) + "fold.npy", "rb"))
+                                opt.train_dataset['pos'] = combine(opt.train_dataset['pos'], dataset['pos'])
+                                opt.train_dataset['neg'] = combine(opt.train_dataset['neg'], dataset['neg'])
 
-                if not hasattr(opt, 'qm9_knn'):
-                        opt.qm9_knn = False
+        dataloaders = prepare_ddi_dataloaders(opt)
 
-                if opt.qm9_knn:
-                        opt.z_dict = pickle.load(open(opt.input_data_path + "drug.z1.pickle", "rb"))
-                        opt.train_dataset = build_knn_qm9_dataset(
-                                                                    z_dict = opt.z_dict,
-                                                                    graph_dict=opt.train_graph_dict,
-                                    train_dict=opt.train_graph_dict,
-                                                                        graph_labels=opt.train_labels_dict,
-                                                                        train_labels=opt.train_labels_dict,
-                                    repetitions=opt.qm9_pairing_repetitions,
-                                    self_pair=opt.mpnn,
-                                                                        is_train=True)
-
-                        # valid molecule is first in the pair
-                        opt.valid_dataset = build_knn_qm9_dataset(
-                                z_dict= opt.z_dict,
-                                graph_dict=opt.valid_graph_dict,
-                                train_dict=opt.train_graph_dict,
-                                graph_labels=opt.valid_labels_dict,
-                                train_labels=opt.train_labels_dict,
-                                repetitions=opt.qm9_pairing_repetitions,
-                                self_pair=opt.mpnn,
-                                is_train=False)
-                else:
-                        opt.train_dataset = build_qm9_dataset(graph_dict1=opt.train_graph_dict,
-                                                              graph_dict2=opt.train_graph_dict,
-                                                              labels_dict1=opt.train_labels_dict,
-                                                              labels_dict2=opt.train_labels_dict,
-                                                              repetitions=opt.qm9_pairing_repetitions,
-                                                              self_pair = opt.mpnn)
-
-                        # valid molecule is first in the pair
-                        opt.valid_dataset = build_qm9_dataset(graph_dict1=opt.valid_graph_dict,
-                                                              graph_dict2=opt.train_graph_dict,
-                                                              labels_dict1=opt.valid_labels_dict,
-                                                              labels_dict2=opt.train_labels_dict,
-                                                              repetitions=opt.qm9_pairing_repetitions,
-                                                              self_pair = opt.mpnn)
-                dataloaders = prepare_qm9_dataloaders(opt)
-
-
-        if "decagon" in opt.dataset:
-                opt.n_side_effect = data_opt.n_side_effect
-                opt.side_effects = data_opt.side_effects
-                opt.side_effect_idx_dict = data_opt.side_effect_idx_dict
-
-                # 'pos'/'neg' will point to a dictionary where
-                # each se points to a list of drug-drug pairs.
-                opt.train_dataset = {'pos': {}, 'neg': {}}
-                opt.test_dataset = pickle.load(open(opt.input_data_path + "folds/" + str(opt.fold_i) + "fold.npy", "rb"))
-                if opt.fold_i == 1:
-                        valid_fold = 2
-                else:
-                        valid_fold = 1
-
-                opt.valid_dataset = pickle.load(open(opt.input_data_path + "folds/" + str(valid_fold) + "fold.npy", "rb"))
-
-                for i in range(valid_fold+1, opt.n_fold+1):
-                                if i != opt.fold_i:
-                                        dataset = pickle.load(open(opt.input_data_path + "folds/" + str(i) + "fold.npy", "rb"))
-                                        opt.train_dataset['pos'] = combine(opt.train_dataset['pos'], dataset['pos'])
-                                        opt.train_dataset['neg'] = combine(opt.train_dataset['neg'], dataset['neg'])
-
-                assert data_opt.n_side_effect == len(opt.side_effects)
-                dataloaders = prepare_ddi_dataloaders(opt)
+        ### DONE PREPARING DATASET
 
         save_experiment_settings(opt)
 
