@@ -16,7 +16,7 @@ from utils.file_utils import *
 
 def preprocess_decagon(dir_path='./data/'):
 	raw_drugs = {}
-	with open(dir_path + 'drug_raw_feat.idx.jsonl') as f:
+	with open(os.path.join(dir_path, 'drug_raw_feat.idx.jsonl')) as f:
 		for l in f:
 			idx, l = l.strip().split('\t')
 			raw_drugs[idx] = json.loads(l)
@@ -350,12 +350,9 @@ def preprocess_qm9(dir_path='./data/qm9/dsgdb9nsd'):
 
 def main():
 	parser = argparse.ArgumentParser(description='Download dataset for Graph Co-attention')
-	parser.add_argument('datasets', metavar='D', type=str.lower, nargs='+', choices=['qm9', 'decagon', 'gen'],
-						help='Name of dataset to download [QM9,DECAGON,GEN]')
-
 	# I/O
 	parser.add_argument('-p', '--path', metavar='dir', type=str, nargs=1,
-						help="path to store the data; must supply if generic (default ./data/)")
+						help="path to store the data", required=True)
 
 	args = parser.parse_args()
 
@@ -367,15 +364,7 @@ def main():
 
 	# Init folder
 	prepare_data_dir(args.path)
-
-	if 'qm9' in args.datasets:
-		preprocess_qm9(args.path + 'qm9/' + 'dsgdb9nsd/')
-
-	if 'decagon' in args.datasets:
-		preprocess_decagon(args.path + 'decagon/')
-
-	if 'agg' in args.datasets:
-		preprocess_decagon(args.path)
+	preprocess_decagon(args.path)
 
 
 if __name__ == "__main__":
