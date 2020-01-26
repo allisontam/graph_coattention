@@ -20,7 +20,7 @@ def setup_running_directories(opt):
 
 
 def save_experiment_settings(opt):
-	setting_npy_path = os.path.join(opt.setting_dir, opt.exp_prefix + '.npy')
+	setting_npy_path = opt.setting_pkl
 	logging.info('Setting of the experiment is saved to %s', setting_npy_path)
 	np.save(setting_npy_path, opt)
 

@@ -22,6 +22,7 @@ from utils.file_utils import setup_running_directories, save_experiment_settings
 from utils.functional_utils import combine
 
 from model import DrugDrugInteractionNetwork
+from test import load_trained_model, run_evaluation, prepare_test_dataloader
 from utils.ddi_utils import ddi_train_epoch, ddi_valid_epoch
 
 
@@ -30,8 +31,15 @@ def post_parse_args(opt):
     random.seed(opt.seed)
     np.random.seed(opt.seed)
     torch.manual_seed(opt.seed)
+
+    data = os.path.basename(os.path.normpath(opt.input_data_path))
+    opt.model_dir = './{}_trained'.format(data)
+    opt.result_dir = './{}_results'.format(data)
+    opt.setting_dir = './{}_settings'.format(data)
+
     if torch.cuda.is_available():
         torch.cuda.manual_seed(opt.seed)
+
     if not hasattr(opt, 'exp_prefix'):
         opt.exp_prefix = opt.memo + '-cv_{}_{}'.format(opt.fold_i, opt.n_fold)
     if opt.debug:
@@ -39,6 +47,7 @@ def post_parse_args(opt):
     if not hasattr(opt, 'global_step'):
         opt.global_step = 0
 
+    opt.setting_pkl = os.path.join(opt.setting_dir, opt.exp_prefix + '.npy')
     opt.best_model_pkl = os.path.join(opt.model_dir, opt.exp_prefix + '.pth')
     opt.result_csv_file = os.path.join(opt.result_dir, opt.exp_prefix + '.csv')
 
@@ -46,6 +55,22 @@ def post_parse_args(opt):
     print(opt.result_csv_file)
     print(opt.model_dir)
     return opt
+
+
+def build_model(opt, device):
+    return DrugDrugInteractionNetwork(
+        n_side_effect=1,
+        n_atom_type=100,
+        n_bond_type=20,
+        d_node=opt.d_hid,
+        d_edge=opt.d_hid,
+        d_atom_feat=3,
+        d_hid=opt.d_hid,
+        d_readout=opt.d_readout,
+        n_head=opt.n_attention_head,
+        n_prop_step=opt.n_prop_step,
+        dropout=opt.dropout,
+        score_fn='trans').to(device)
 
 
 def prepare_dataloaders(opt):
@@ -65,10 +90,6 @@ def prepare_dataloaders(opt):
         batch_size=opt.batch_size,
         collate_fn=gen.test_collate_fn)
     return train_loader, valid_loader
-
-
-def train_epoch(model, data_train, optimizer, averaged_model, device, opt):
-    return ddi_train_epoch(model, data_train, optimizer, averaged_model, device, opt)
 
 
 def valid_epoch(model, data_valid, device, opt, threshold=None):
@@ -95,7 +116,7 @@ def train(model, datasets, device, opt):
 
         # ============= Training Phase =============
         train_loss, elapse, averaged_model = \
-            train_epoch(model, data_train, optimizer, averaged_model, device, opt)
+            ddi_train_epoch(model, data_train, optimizer, averaged_model, device, opt)
         logging.info(' Loss:    %5f, used time: %f min', train_loss, elapse)
 
         # ============= Validation Phase =============
@@ -121,12 +142,8 @@ def train(model, datasets, device, opt):
                  'threshold': valid_perf['threshold']},
                 opt.best_model_pkl)
         else:
-            if waited_epoch < opt.patience:
-                waited_epoch += 1
-                logging.info(' --> Observing ... (%d/%d)', waited_epoch, opt.patience)
-            else:
-                logging.info(' --> Saturated. Break the training process.')
-                break
+            waited_epoch += 1
+            logging.info(' --> Observing ... (%d/%d)', waited_epoch, opt.n_epochs)
 
         # ============= Bookkeeping Phase =============
         # Keep the validation record
@@ -138,6 +155,21 @@ def train(model, datasets, device, opt):
             csv_writer.writerow([train_loss, valid_auroc])
 
 
+def predict(test_data, device, test_opt, out_log):
+    model, threshold = load_trained_model(test_opt, device)
+    print("loaded model")
+    test_perf, _ = run_evaluation(model, test_data, device, test_opt, threshold=threshold)
+
+    with open(out_log, 'a') as csv_file:
+        csv_writer = csv.writer(csv_file)
+        csv_writer.writerow(["TEST PERFORMANCE", "METRICS"])
+        for k,v in test_perf.items():
+            csv_writer.writerow([k, v])
+
+
+# HYPERPARAMS
+# d_hid, d_readout, n_attention_head, n_prop_step, dropout, margin
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -147,31 +179,23 @@ def main():
 
     parser.add_argument('-f', '--fold', default='0/10', type=str,
               help="Which fold to test on, format x/total")
-
-    parser.add_argument('--gpu', type=int, default=0)
-    # Dirs
-    parser.add_argument('--model_dir', default='./exp_trained')
-    parser.add_argument('--result_dir', default='./exp_results')
-    parser.add_argument('--setting_dir', default='./exp_settings')
     parser.add_argument('-mm', '--memo', help='Memo for experiment', default='default')
 
+    # How to train
+    parser.add_argument('-e', '--n_epochs', type=int, default=30)
     parser.add_argument('-b', '--batch_size', type=int, default=2, help='Bc of uneven class sizes')
+    parser.add_argument('-lr', '--learning_rate', type=float, default=1e-3)
+    parser.add_argument('-l2', '--l2_lambda', type=float, default=0)
 
+    # Hyperparams
     parser.add_argument('-d_h', '--d_hid', type=int, default=32)
     parser.add_argument('-d_readout', '--d_readout', type=int, default=32)
-
-    parser.add_argument('-d_a', '--d_atom_feat', type=int, default=3)
     parser.add_argument('-n_p', '--n_prop_step', type=int, default=3)
     parser.add_argument('-n_h', '--n_attention_head', type=int, default=8)
-
-    parser.add_argument('-dbg', '--debug', action='store_true')
-    parser.add_argument('-e', '--n_epochs', type=int, default=10000)
-
-    parser.add_argument('-lr', '--learning_rate', type=float, default=1e-3)
-
-    parser.add_argument('-l2', '--l2_lambda', type=float, default=0)
     parser.add_argument('-drop', '--dropout', type=float, default=0.1)
-    parser.add_argument('--patience', type=int, default=32)
+
+    parser.add_argument('--gpu', type=int, default=0)
+    parser.add_argument('-dbg', '--debug', action='store_true')
     parser.add_argument('--seed', type=int, default=1337)
 
     # If mpnn is true, then first pairing happens with itself
@@ -182,15 +206,6 @@ def main():
 
     opt.fold_i, opt.n_fold = map(int, opt.fold.split('/'))
     assert 0 <= opt.fold_i < opt.n_fold
-
-    # Directory to resume training from
-    # parser.add_argument('--trained_setting_pkl', default=None,
-                        # help='Load trained model from setting pkl')
-    # is_resume_training = opt.trained_setting_pkl is not None
-    # if is_resume_training:
-        # logging.info('Resume training from', opt.trained_setting_pkl)
-        # opt = np.load(open(opt.trained_setting_pkl, 'rb'), allow_pickle=True).item()
-    # else:
 
     opt = post_parse_args(opt)
     setup_running_directories(opt)
@@ -205,7 +220,6 @@ def main():
     assert os.path.exists(opt.split_path)
     assert os.path.exists(opt.graph_input)
 
-    dataloaders = prepare_dataloaders(opt)
     save_experiment_settings(opt)
 
     # build model
@@ -217,29 +231,15 @@ def main():
     else:
         print("on cpu")
 
-    model = DrugDrugInteractionNetwork(
-        n_side_effect=1,
-        n_atom_type=100,
-        n_bond_type=20,
-        d_node=opt.d_hid,
-        d_edge=opt.d_hid,
-        d_atom_feat=3,
-        d_hid=opt.d_hid,
-        d_readout=opt.d_readout,
-        n_head=opt.n_attention_head,
-        n_prop_step=opt.n_prop_step,
-        dropout=opt.dropout,
-        score_fn='trans').to(device)
+    dataloaders = prepare_dataloaders(opt)
+    train(build_model(opt), dataloaders, device, opt)
 
-    # if is_resume_training:
-        # trained_state = torch.load(opt.best_model_pkl)
-        # opt.global_step = trained_state['global_step']
-        # logging.info(
-            # 'Load trained model @ step %d from file: %s',
-            # opt.global_step, opt.best_model_pkl)
-        # model.load_state_dict(trained_state['model'])
+    test_opt = np.load(opt.setting_pkl, allow_pickle=True).item()
+    test_opt.batch_size = 6
+    test_opt.split_path = os.path.join(opt.input_data_path, 'folds/fold_{}.pkl'.format(eval_opt.fold_i))
 
-    train(model, dataloaders, device, opt)
+    test_data = prepare_test_dataloader(test_opt)
+    predict(test_data, device, test_opt, opt.result_csv_file)
 
 
 if __name__ == "__main__":

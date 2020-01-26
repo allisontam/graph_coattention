@@ -21,7 +21,7 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S")
 
 
-def prepare_dataloader(train_opt):
+def prepare_test_dataloader(train_opt):
     data = pd.read_csv(os.path.join(train_opt.input_data_path, 'data.csv'))
     splits = pkl.load(open(train_opt.split_path, 'rb'))
     test_split = data.iloc[splits[2]]
@@ -82,7 +82,7 @@ def main():
     # EVAL OPT NOT REALLY USED ANYMORE AFTER THIS
 
     # create data loader
-    test_data = prepare_dataloader(test_opt)
+    test_data = prepare_test_dataloader(test_opt)
 
     # build model
     model, threshold = load_trained_model(test_opt, device)
