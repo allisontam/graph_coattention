@@ -25,11 +25,10 @@ def prepare_test_dataloader(train_opt):
     data = pd.read_csv(os.path.join(train_opt.input_data_path, 'data.csv'))
     splits = pkl.load(open(train_opt.split_path, 'rb'))
     test_split = data.iloc[splits[2]]
-    print("batch_size", train_opt.batch_size)
+    print("batch_size", train_opt.batch_size, len(test_split), data.columns[-1])
 
     return torch.utils.data.DataLoader(
         gen.GenericDataset(test_split, train_opt.graph_input),
-        num_workers=2,
         batch_size=train_opt.batch_size,
         collate_fn=gen.test_collate_fn)
 
@@ -43,7 +42,7 @@ def load_trained_model(train_opt, device):
         d_edge=train_opt.d_hid,
         d_atom_feat=3,
         d_hid=train_opt.d_hid,
-        d_readout=train_opt.d_readout,
+        d_readout=train_opt.d_hid,
         n_head=train_opt.n_attention_head,
         n_prop_step=train_opt.n_prop_step).to(device)
 

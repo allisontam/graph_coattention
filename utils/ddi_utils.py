@@ -9,6 +9,12 @@ import torch.nn.functional as F
 
 from utils.functional_utils import AverageMeter, get_optimal_thresholds_for_rels
 
+
+def prc_auc_score(label, score):
+    precision, recall, _ = metrics.precision_recall_curve(label, score)
+    return metrics.auc(recall, precision)
+
+
 def ddi_train_epoch(model, data_train, optimizer, averaged_model, device, opt):
     def update_avg_model(model, averaged_model):
         decay = 0.9 # moving_avg_decay
@@ -100,6 +106,7 @@ def ddi_valid_epoch(model, data_valid, device, opt, threshold=None):
     performance = {
         'auroc': metrics.roc_auc_score(label, score),
         'avg_p': metrics.average_precision_score(label, score),
+        'auprc': prc_auc_score(label, score),
         # 'f1': metrics.f1_score(label, pred, average='binary'),
         # 'p': metrics.precision_score(label, pred, average='binary'),
         # 'r': metrics.recall_score(label, pred, average='binary'),

@@ -35,7 +35,7 @@ class AverageMeter(object):
         elif isinstance(self.avg, (torch.Tensor, torch.cuda.FloatTensor)):
             return self.avg.item()
         else:
-            raise NotImplementedError
+            return self.avg
 
 
 def get_optimal_thresholds_for_rels(gold, score, interval=0.01):
