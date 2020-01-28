@@ -6,5 +6,20 @@ __pycache__/
 # Input data
 data/
 
+experiments/
+scripts/
+
 # Experimental results
-results/
+exp_results/
+exp_settings/
+exp_trained/
+
+agg_hyper/
+agg_results/
+agg_settings/
+agg_trained/
+
+anti_hyper/
+anti_results/
+anti_settings/
+anti_trained/
