@@ -80,12 +80,15 @@ class GenericDataset(torch.utils.data.Dataset):
     data: pandas for the intended split
     """
     def __init__(self, data, mol_desc_path, prop_name='agg'):
+        prop_name = data.columns[-1]
         self.pos_pairs = list(map(lambda x: tuple(x[1][:2]), data[data[prop_name] == 1].iterrows()))
         self.neg_pairs = list(map(lambda x: tuple(x[1][:2]), data[data[prop_name] == 0].iterrows()))
+        if self.neg2pos_ratio() > 150:
+            self.pos_pairs *= int(len(self.neg_pairs)/150)
         self.shuffle()
 
         self.drug_struct = {}
-        with open('data/agg/drug.feat.wo_h.self_loop.idx.jsonl') as f:
+        with open(mol_desc_path) as f:
             for l in f:
                 idx, l = l.strip().split('\t')
                 self.drug_struct[idx] = json.loads(l)
@@ -95,7 +98,7 @@ class GenericDataset(torch.utils.data.Dataset):
         shuffle(self.neg_pairs)
 
     def neg2pos_ratio(self):
-        return len(self.neg_pairs)/len(self.pos_pairs)
+        return 0 if len(self.pos_pairs) == 0 else len(self.neg_pairs)/len(self.pos_pairs)
 
     def __len__(self):
         return len(self.pos_pairs)
