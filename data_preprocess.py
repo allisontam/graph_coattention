@@ -165,10 +165,10 @@ def preprocess_decagon(dir_path='./data/'):
 		for cid, d in drug_structure_dict.items()}
 
 	# # Write to jsonl file
-	with open(dir_path + 'drug.feat.wo_h.self_loop.idx.jsonl', 'w') as f:
+	with open(os.path.join(dir_path, 'drug.feat.wo_h.self_loop.idx.jsonl'), 'w') as f:
 		for cid, d in drug_graph_dict.items():
 			f.write('{}\t{}\n'.format(cid, json.dumps(d)))
-	with open(dir_path + 'drug.bond_idx.wo_h.self_loop.json', 'w') as f:
+	with open(os.path.join(dir_path, 'drug.bond_idx.wo_h.self_loop.json'), 'w') as f:
 		f.write(json.dumps(bond_type_idx))
 
 
@@ -337,9 +337,9 @@ def preprocess_qm9(dir_path='./data/qm9/dsgdb9nsd'):
 
 	# # Write to jsonl file
 	files = [f for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))]
-	with open(dir_path + 'viz_drug.feat.self_loop.idx.jsonl', 'w') as f:
-		with open(dir_path + 'viz_drug.labels.jsonl', 'w')  as g:
-			with open(dir_path + 'viz_smiles.jsonl', 'w') as h:
+	with open(os.path.join(dir_path, 'viz_drug.feat.self_loop.idx.jsonl'), 'w') as f:
+		with open(os.path.join(dir_path, 'viz_drug.labels.jsonl'), 'w')  as g:
+			with open(os.path.join(dir_path, 'viz_smiles.jsonl'), 'w') as h:
 				for file in files:
 					if ".xyz" in file and file in ["dsgdb9nsd_047721.xyz","dsgdb9nsd_040834.xyz"]:
 						mol_idx, mol_representation, labels, smiles = xyz_graph_reader(os.path.join(dir_path, file))
