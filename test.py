@@ -28,7 +28,7 @@ def prepare_test_dataloader(train_opt):
     print("batch_size", train_opt.batch_size, len(test_split), data.columns[-1])
 
     return torch.utils.data.DataLoader(
-        gen.GenericDataset(test_split, train_opt.graph_input),
+        gen.GenericTestDataset(test_split, train_opt.graph_input),
         batch_size=train_opt.batch_size,
         collate_fn=gen.test_collate_fn)
 

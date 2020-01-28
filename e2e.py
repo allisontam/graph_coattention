@@ -80,25 +80,22 @@ def prepare_dataloaders(opt):
     train_split, val_split, test_split = [data.iloc[splits[i]] for i in range(3)]
 
     train_loader = torch.utils.data.DataLoader(
-        gen.GenericDataset(train_split, opt.graph_input),
+        gen.GenericTrainDataset(train_split, opt.graph_input),
         num_workers=2,
         batch_size=opt.batch_size,
         collate_fn=gen.train_collate_fn)
 
     valid_loader = torch.utils.data.DataLoader(
-        gen.GenericDataset(val_split, opt.graph_input),
+        gen.GenericTestDataset(val_split, opt.graph_input),
         num_workers=2,
         batch_size=opt.batch_size,
         collate_fn=gen.test_collate_fn)
 
     test_loader = torch.utils.data.DataLoader(
-        gen.GenericDataset(test_split, opt.graph_input),
+        gen.GenericTestDataset(test_split, opt.graph_input),
         batch_size=opt.batch_size,
         collate_fn=gen.test_collate_fn)
 
-    if len(valid_loader) == 0:
-        print(splits[1][:5])
-        raise ValueError('VALIDATION')
     return train_loader, valid_loader, test_loader
 
 

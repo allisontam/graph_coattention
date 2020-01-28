@@ -16,13 +16,7 @@ def train_collate_fn(batch):
     return pos_batch, neg_batch
 
 def test_collate_fn(batch):
-    ret_all = []
-    truth = []
-    for item in batch: # item is output of __getitem__
-        ret_all.extend(item[0])
-        truth.extend([1]*len(item[0]))
-        ret_all.extend(item[1])
-        truth.extend([0]*len(item[1]))
+    ret_all, truth = list(zip(*batch))
     return (ddi_collate_batch(ret_all), truth)
 
 def ddi_collate_batch(batch):
@@ -73,25 +67,54 @@ def collate_drugs(drugs):
 
     return batch_seg_m, atom_type, atom_feat, bond_type, bond_seg_i, bond_idx_j
 
-class GenericDataset(torch.utils.data.Dataset):
+class GenericTestDataset(torch.utils.data.Dataset):
     """
     Only for predicting single properties from pairs
 
     data: pandas for the intended split
     """
-    def __init__(self, data, mol_desc_path, prop_name='agg'):
-        prop_name = data.columns[-1]
-        self.pos_pairs = list(map(lambda x: tuple(x[1][:2]), data[data[prop_name] == 1].iterrows()))
-        self.neg_pairs = list(map(lambda x: tuple(x[1][:2]), data[data[prop_name] == 0].iterrows()))
-        if self.neg2pos_ratio() > 150:
-            self.pos_pairs *= int(len(self.neg_pairs)/150)
-        self.shuffle()
+    def __init__(self, data, mol_desc_path):
+        if len(data) == 0:
+            raise ValueError("Empty dataset")
 
+        self.pairs = list(map(lambda x: tuple(x), data.iterrows()))
         self.drug_struct = {}
         with open(mol_desc_path) as f:
             for l in f:
                 idx, l = l.strip().split('\t')
                 self.drug_struct[idx] = json.loads(l)
+
+    def __len__(self):
+        return len(self.pairs)
+
+    def __getitem__(self, idx):
+        pair1, pair2, label = self.pairs[idx]
+        cmpds = self.lookup( [(pair1, pair2)] )
+
+        return (cmpds, label)
+
+    def lookup(self, data):
+        ret = []
+        for pair in data:
+            ret.append( (self.drug_struct[pair[0]], self.drug_struct[pair[1]]) )
+        return ret
+
+class GenericTrainDataset(GenericTestDataset):
+    """
+    Only for predicting single properties from pairs
+
+    data: pandas for the intended split
+    """
+    def __init__(self, data, mol_desc_path, ratioCap=150):
+        super().__init__(data, mol_desc_path)
+        self.ratioCap = ratioCap
+        self.pos_pairs = list(filter(lambda x: x[-1] == 1, self.pairs))
+        self.neg_pairs = list(filter(lambda x: x[-1] == 0, self.pairs))
+        del self.pairs
+
+        if self.neg2pos_ratio() > self.ratioCap:
+            self.pos_pairs *= int(len(self.neg_pairs)/self.ratioCap)
+        self.shuffle()
 
     def shuffle(self):
         shuffle(self.pos_pairs)
@@ -112,9 +135,3 @@ class GenericDataset(torch.utils.data.Dataset):
             end_ind = len(self.neg_pairs)
         ret_neg = self.lookup( self.neg_pairs[idx*ratio:end_ind] )
         return (ret_pos, ret_neg)
-
-    def lookup(self, data):
-        ret = []
-        for pair in data:
-            ret.append( (self.drug_struct[pair[0]], self.drug_struct[pair[1]]) )
-        return ret
