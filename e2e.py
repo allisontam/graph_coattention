@@ -88,11 +88,13 @@ def prepare_dataloaders(opt):
     valid_loader = torch.utils.data.DataLoader(
         gen.GenericTestDataset(val_split, opt.graph_input),
         num_workers=2,
+        shuffle=True,
         batch_size=opt.batch_size,
         collate_fn=gen.test_collate_fn)
 
     test_loader = torch.utils.data.DataLoader(
         gen.GenericTestDataset(test_split, opt.graph_input),
+        shuffle=True,
         batch_size=opt.batch_size,
         collate_fn=gen.test_collate_fn)
 
@@ -103,9 +105,7 @@ def valid_epoch(model, data_valid, device, opt, threshold=None):
     return ddi_valid_epoch(model, data_valid, device, opt, threshold)
 
 
-def train(model, datasets, device, opt):
-
-    data_train, data_valid = datasets
+def train(model, data_train, data_valid, device, opt):
     optimizer = optim.Adam(
         model.parameters(), lr=opt.learning_rate, weight_decay=opt.l2_lambda)
 
@@ -118,7 +118,6 @@ def train(model, datasets, device, opt):
     averaged_model = model.state_dict()
     for epoch_i in range(opt.n_epochs):
         data_train.dataset.shuffle()
-        data_valid.dataset.shuffle()
         print('\nEpoch ', epoch_i)
 
         # ============= Training Phase =============
@@ -246,7 +245,8 @@ def all_folds(opt):
             print("on cpu")
 
         train_data, val_data, test_data = prepare_dataloaders(opt)
-        train(build_model(opt, device), (train_data, val_data), device, opt)
+        model = build_model(opt, device)
+        train(model, train_data, val_data, device, opt)
 
         test_opt = np.load(opt.setting_pkl, allow_pickle=True).item()
         test_opt.split_path = os.path.join(opt.input_data_path, 'folds/fold_{}.pkl'.format(opt.fold_i))
@@ -289,7 +289,8 @@ def main():
         print("on cpu")
 
     train_data, val_data, test_data = prepare_dataloaders(opt)
-    train(build_model(opt, device), (train_data, val_data), device, opt)
+    model = build_model(opt, device)
+    train(model, train_data, val_data, device, opt)
 
     test_opt = np.load(opt.setting_pkl, allow_pickle=True).item()
     test_opt.split_path = os.path.join(opt.input_data_path, 'folds/fold_{}.pkl'.format(opt.fold_i))

@@ -17,7 +17,7 @@ def train_collate_fn(batch):
 
 def test_collate_fn(batch):
     ret_all, truth = list(zip(*batch))
-    return (ddi_collate_batch(ret_all), truth)
+    return (ddi_collate_batch(map(lambda x: x[0], ret_all)), truth)
 
 def ddi_collate_batch(batch):
     """
@@ -77,7 +77,7 @@ class GenericTestDataset(torch.utils.data.Dataset):
         if len(data) == 0:
             raise ValueError("Empty dataset")
 
-        self.pairs = list(map(lambda x: tuple(x), data.iterrows()))
+        self.pairs = list(map(lambda x: tuple(x[1]), data.iterrows()))
         self.drug_struct = {}
         with open(mol_desc_path) as f:
             for l in f:
@@ -91,7 +91,7 @@ class GenericTestDataset(torch.utils.data.Dataset):
         pair1, pair2, label = self.pairs[idx]
         cmpds = self.lookup( [(pair1, pair2)] )
 
-        return (cmpds, label)
+        return cmpds, label
 
     def lookup(self, data):
         ret = []
